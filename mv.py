@@ -21,6 +21,12 @@ print(X.shape)
 
 fig0, ax0 = plt.subplots()
 strm = ax0.streamplot(X, Y, U, V, color=speed, linewidth=1, cmap=plt.cm.autumn)
+ax0.grid(color='grey', linestyle='dotted', linewidth=1)
+ax0.set_xlabel('X(t)');
+ax0.set_ylabel('Y(t)');
+ax0.set_xlim(0, 10);
+ax0.set_ylim(0, 10);
+
 fig0.colorbar(strm.lines)
 
 def ode(x0, y0, dx, dy, h = 0.1, n = 101, t0 = 0):
