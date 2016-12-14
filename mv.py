@@ -7,27 +7,65 @@ from scipy.optimize import leastsq
 G = [[0.02, 0.03], [0.07, 0.05]]
 E = [0.19, 0.5]
 
-def dx1(x1, x2):
+def dx1_res(x1, x2, E, G):
     return (E[0] - G[0][0]*x1 - G[0][1]*x2)*x1
 
-def dx2(x1, x2):
+def dx2_res(x1, x2, E, G):
     return (E[1] - G[1][0]*x1 - G[1][1]*x2)*x2
 
-Y, X = np.mgrid[0:10:200j, 0:10:200j]
-U = (E[0] - G[0][0]*X - G[0][1]*Y)*X
-V = (E[1] - G[1][0]*X - G[1][1]*Y)*Y
-speed = np.sqrt(U*U + V*V)
-print(X.shape)
+def Jak(x1, x2, E1, G1):
+    a11 = E1[0] - 2*G1[0][0]*x1 - G1[0][1]*x2
+    a12 = -G1[0][1]*x1
+    a21 = -G1[1][0]*x2
+    a22 = E1[1] - G1[1][0]*x1 - 2*G1[1][1]*x2
+    b = a11 + a22
+    c = a11*a22 - a12*a21
+    if (b**2 - 4*c) > 0:
+        l1 = (b + np.sqrt(b**2 - 4*c))/2
+        l2 = (b - np.sqrt(b**2 - 4*c))/2
+        f = False
+    else:
+        l1, l2 = b, b
+        f = True
+    return [l1, l2, f]
 
-fig0, ax0 = plt.subplots()
-strm = ax0.streamplot(X, Y, U, V, color=speed, linewidth=1, cmap=plt.cm.autumn)
-ax0.grid(color='grey', linestyle='dotted', linewidth=1)
-ax0.set_xlabel('X(t)');
-ax0.set_ylabel('Y(t)');
-ax0.set_xlim(0, 10);
-ax0.set_ylim(0, 10);
+def solve(E, G):
+    x2 = (E[1] - E[0]*G[1][0]/G[0][0])/(G[1][1] - G[0][1]*G[1][0]/G[0][0])
+    x1 = (E[0] - G[0][1]*x2)/G[0][0]
+    return [x1, x2]
 
-fig0.colorbar(strm.lines)
+def ust(E1, G1):
+    x1, x2 = solve(E1, G1)
+    print('Points:')
+    print([0.0, 0.0])
+    print([0.0, E1[1]/G1[1][1]])
+    print([E1[0]/G1[0][0], 0.0])
+    print([x1, x2])
+    print(Jak(0.0, 0.0, E1, G1))
+    print(Jak(0.0, E1[1]/G1[1][1], E1, G1))
+    print(Jak(E1[0]/G1[0][0], 0.0, E1, G1))
+    print(Jak(x1, x2, E1, G1))
+
+print 'Original system'
+ust(E, G)
+
+def draw(E, G):
+    Y, X = np.mgrid[0:15:400j, 0:15:400j]
+    U = dx1_res(X, Y, E, G)
+    V = dx2_res(X, Y, E, G)
+    # V = (E[1] - G[1][0]*X - G[1][1]*Y)*Y
+    speed = np.sqrt(U*U + V*V)
+    print(X.shape)
+
+    fig0, ax0 = plt.subplots()
+    strm = ax0.streamplot(X, Y, U, V, color=speed, linewidth=1, cmap=plt.cm.autumn)
+    ax0.grid(color='grey', linestyle='dotted', linewidth=1)
+    ax0.set_xlabel('X(t)');
+    ax0.set_ylabel('Y(t)');
+    ax0.set_xlim(0, 15);
+    ax0.set_ylim(0, 15);
+
+    fig0.colorbar(strm.lines)
 
 def ode(x0, y0, dx, dy, h = 0.1, n = 101, t0 = 0):
         # Y, X = np.mgrid[0:10:100j, 0:10:100j]
@@ -42,11 +80,16 @@ def ode(x0, y0, dx, dy, h = 0.1, n = 101, t0 = 0):
         # Y = [Y for i in range(n)]
         return np.array([Y, X])
 
-Y1, X1 = ode(10, 10, dx1, dx2)
+dx1 = lambda x1, x2: dx1_res(x1, x2, E, G)
+dx2 = lambda x1, x2: dx2_res(x1, x2, E, G)
+
+draw(E, G)
+Y1, X1 = ode(1.0, 2.0, dx1, dx2)
 dX1, dY1 = dx1(X1, Y1), dx2(X1, Y1)
-mkError = lambda x: (1 + (2*rnd.random() - 1.)/16)*x
+mkError = lambda x: (1 + (2*rnd.random() - 1.)/2)*x
 dY1 = list(map(mkError, dY1))
 dX1 = list(map(mkError, dX1))
+plt.plot(X1, Y1, linewidth=3)
 
 # print(sum(dY12 - dY1))
 
@@ -58,13 +101,19 @@ funcY = lambda tpl, x, y: (tpl[0] - tpl[1]*x - tpl[2]*y)*y
 erFuncY = lambda tpl, x, y, f: funcY(tpl, x, y) - f
 tplFinalY, succes = leastsq(erFuncY, (0.3, 0.4, 0.5), args=(X1, Y1, dY1));
 
-print(tplFinalX)
-print(tplFinalY)
+# print(tplFinalX)
+# print(tplFinalY)
+print("New cofficients:")
 print(E)
 print(G)
+E1 = [tplFinalX[0], tplFinalY[0]]
+G1 = [[tplFinalX[1], tplFinalX[2]], [tplFinalY[1], tplFinalY[2]]]
+print(E1)
+print(G1)
+draw(E1, G1)
+print 'Droped system'
+ust(E1, G1)
 
-
-plt.plot(X1, Y1, linewidth=3)
 
 # fig1, (ax1, ax2) = plt.subplots(ncols=2)
 # ax1.streamplot(X, Y, U, V, density=[0.5, 1])
